@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Speed Compare — SecretAI vs Groq</title>
+<style>
+  :root {
+    --color-bg: #FDF5EE;
+    --color-accent: #E8431C;
+    --color-dark: #1C1C1C;
+    --color-text: #2A2A2A;
+    --color-muted: #6B6B6B;
+    --color-panel-a: #FDF5EE;
+    --color-panel-b: #F0F4F8;
+    --color-border: #E8DDD4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  .site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .site-header .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--color-dark);
+    letter-spacing: -0.02em;
+  }
+  .site-header .logo svg { flex-shrink: 0; }
+  .site-header .tagline {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    font-weight: 400;
+  }
+
+  /* ── Input Area ── */
+  .input-section {
+    max-width: 720px;
+    margin: 2rem auto 0;
+    padding: 0 1.5rem;
+    width: 100%;
+    text-align: center;
+  }
+  .input-section h2 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--color-dark);
+    margin-bottom: 0.3rem;
+    letter-spacing: -0.02em;
+  }
+  .input-section .subtitle {
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    margin-bottom: 1.25rem;
+  }
+  .input-bar {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .input-bar input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    border: 1.5px solid var(--color-border);
+    background: #fff;
+    color: var(--color-text);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .input-bar input:focus { border-color: var(--color-accent); }
+  .input-bar button {
+    padding: 0.75rem 1.75rem;
+    border-radius: 10px;
+    border: none;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .input-bar button:hover { background: #d03a17; }
+  .input-bar button:active { transform: scale(0.97); }
+  .input-bar button:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+
+  /* ── Prompt Chips ── */
+  .prompt-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 0.85rem;
+  }
+  .chip {
+    padding: 0.35rem 0.85rem;
+    border-radius: 20px;
+    border: 1px solid var(--color-border);
+    background: #fff;
+    font-size: 0.78rem;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .chip:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+  /* ── Panels ── */
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    flex: 1;
+    padding: 1.75rem 2rem 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .panel {
+    border-radius: 16px;
+    border: 1.5px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: box-shadow 0.3s;
+  }
+  .panel:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+  .panel-a { background: var(--color-panel-a); border-top: 3.5px solid var(--color-accent); }
+  .panel-b { background: var(--color-panel-b); border-top: 3.5px solid #94A3B8; }
+
+  .panel-header {
+    padding: 1rem 1.25rem 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .panel-header-left { display: flex; align-items: center; gap: 0.5rem; }
+  .panel-icon {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+  }
+  .panel-a .panel-icon { background: #E8431C18; color: var(--color-accent); }
+  .panel-b .panel-icon { background: #94A3B818; color: #64748B; }
+  .panel-label {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: var(--color-dark);
+    letter-spacing: -0.01em;
+  }
+  .panel-model {
+    font-size: 0.7rem;
+    color: var(--color-muted);
+    margin-top: 0.35rem;
+    font-weight: 500;
+  }
+
+  /* ── Security Badges ── */
+  .panel-badges {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0 1.25rem 0.75rem;
+    flex-wrap: wrap;
+  }
+  .sec-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .panel-a .sec-badge { background: #E8431C12; color: var(--color-accent); }
+  .panel-b .sec-badge { background: #94A3B812; color: #64748B; }
+
+  /* ── Timer Display ── */
+  .timer-display {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+  }
+  .timer-big {
+    font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--color-dark);
+    line-height: 1;
+    min-width: 160px;
+  }
+  .timer-big.waiting { color: #bbb; }
+  .timer-big.running { color: var(--color-dark); }
+  .panel-a .timer-big.done { color: var(--color-accent); }
+  .panel-b .timer-big.done { color: #3B82F6; }
+
+  .timer-unit {
+    font-size: 0.85rem;
+    color: var(--color-muted);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .ttft-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 8px;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .ttft-badge.visible { opacity: 1; transform: translateY(0); }
+  .panel-a .ttft-badge { background: #E8431C18; color: var(--color-accent); }
+  .panel-b .ttft-badge { background: #3B82F618; color: #3B82F6; }
+
+  /* ── Panel Body ── */
+  .panel-body {
+    flex: 1;
+    padding: 1rem 1.25rem;
+    overflow-y: auto;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    color: var(--color-text);
+    min-height: 180px;
+  }
+  .panel-body .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    vertical-align: text-bottom;
+    margin-left: 1px;
+    animation: blink 0.7s infinite;
+  }
+  .panel-a .panel-body .cursor { background: var(--color-accent); }
+  .panel-b .panel-body .cursor { background: #3B82F6; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+  .panel-footer {
+    padding: 0.6rem 1.25rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.72rem;
+    color: var(--color-muted);
+    text-align: right;
+    font-weight: 500;
+  }
+
+  /* ── Verdict Banner ── */
+  .verdict-bar {
+    background: var(--color-dark);
+    color: #fff;
+    text-align: center;
+    padding: 0;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.5s ease, padding 0.5s ease;
+  }
+  .verdict-bar.visible {
+    max-height: 120px;
+    padding: 1.25rem 2rem;
+  }
+  .verdict-text {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .verdict-text .highlight { color: var(--color-accent); }
+  .verdict-sub {
+    font-size: 0.8rem;
+    color: #999;
+    margin-top: 0.3rem;
+    font-weight: 400;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .panels { grid-template-columns: 1fr; }
+    .site-header { flex-direction: column; gap: 0.3rem; text-align: center; }
+    .timer-big { font-size: 1.8rem; min-width: 120px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="site-header">
+  <div class="logo">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L3 7v10l9 5 9-5V7l-9-5z"/><path d="M12 22V12"/><path d="M3 7l9 5 9-5"/></svg>
+    LLM Speed Compare
+  </div>
+  <div class="tagline">Privacy-preserving AI &mdash; how fast is it really?</div>
+</header>
+
+<!-- Input -->
+<div class="input-section">
+  <h2>Race two LLMs, side by side</h2>
+  <p class="subtitle">Same model, same prompt. One runs in a Trusted Execution Environment.</p>
+  <div class="input-bar">
+    <input type="text" id="prompt" placeholder="Enter a prompt..." autofocus>
+    <button id="submit" onclick="run()">Compare</button>
+  </div>
+  <div class="prompt-chips">
+    <span class="chip" onclick="useChip(this)">Explain quantum computing in simple terms</span>
+    <span class="chip" onclick="useChip(this)">Write a Python function to reverse a linked list</span>
+    <span class="chip" onclick="useChip(this)">What are the benefits of zero-knowledge proofs?</span>
+    <span class="chip" onclick="useChip(this)">Draft a professional email declining a meeting</span>
+  </div>
+</div>
+
+<!-- Panels -->
+<div class="panels">
+  <!-- Panel A (SecretAI) -->
+  <div class="panel panel-a" id="panel-a">
+    <div class="panel-header">
+      <div class="panel-header-left">
+        <div class="panel-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L3 7v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V7l-9-5z"/></svg>
+        </div>
+        <span class="panel-label" id="label-a">Provider A</span>
+      </div>
+      <span class="panel-model" id="model-a"></span>
+    </div>
+    <div class="panel-badges">
+      <span class="sec-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> Encrypted</span>
+      <span class="sec-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Verifiable</span>
+      <span class="sec-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L3 7v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V7l-9-5z"/></svg> TEE Protected</span>
+    </div>
+    <div class="timer-display">
+      <span class="timer-big waiting" id="elapsed-a">&mdash;</span>
+      <span class="timer-unit">ms</span>
+      <span class="ttft-badge" id="ttft-a"></span>
+    </div>
+    <div class="panel-body" id="body-a"></div>
+    <div class="panel-footer" id="footer-a"></div>
+  </div>
+
+  <!-- Panel B (Groq) -->
+  <div class="panel panel-b" id="panel-b">
+    <div class="panel-header">
+      <div class="panel-header-left">
+        <div class="panel-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+        </div>
+        <span class="panel-label" id="label-b">Provider B</span>
+      </div>
+      <span class="panel-model" id="model-b"></span>
+    </div>
+    <div class="panel-badges">
+      <span class="sec-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg> Standard Cloud</span>
+    </div>
+    <div class="timer-display">
+      <span class="timer-big waiting" id="elapsed-b">&mdash;</span>
+      <span class="timer-unit">ms</span>
+      <span class="ttft-badge" id="ttft-b"></span>
+    </div>
+    <div class="panel-body" id="body-b"></div>
+    <div class="panel-footer" id="footer-b"></div>
+  </div>
+</div>
+
+<!-- Verdict Banner -->
+<div class="verdict-bar" id="verdict">
+  <div class="verdict-text" id="verdict-text"></div>
+  <div class="verdict-sub" id="verdict-sub"></div>
+</div>
+
+<script>
+let configData = {};
+
+// Load config on page load
+fetch('/config').then(r => r.json()).then(cfg => {
+  configData = cfg;
+  document.getElementById('label-a').textContent = cfg.label_a;
+  document.getElementById('label-b').textContent = cfg.label_b;
+  document.getElementById('model-a').textContent = cfg.model_a;
+  document.getElementById('model-b').textContent = cfg.model_b;
+});
+
+// Prompt chips
+function useChip(el) {
+  document.getElementById('prompt').value = el.textContent;
+  document.getElementById('prompt').focus();
+}
+
+// Enter key submits
+document.getElementById('prompt').addEventListener('keydown', e => {
+  if (e.key === 'Enter') run();
+});
+
+// State
+let results = { a: null, b: null };
+
+function run() {
+  const prompt = document.getElementById('prompt').value.trim();
+  if (!prompt) return;
+
+  const btn = document.getElementById('submit');
+  btn.disabled = true;
+
+  // Hide verdict
+  document.getElementById('verdict').classList.remove('visible');
+
+  // Reset state
+  results = { a: null, b: null };
+
+  // Reset both panels
+  ['a', 'b'].forEach(side => {
+    document.getElementById('body-' + side).textContent = '';
+    document.getElementById('footer-' + side).textContent = '';
+    const el = document.getElementById('elapsed-' + side);
+    el.textContent = '0';
+    el.className = 'timer-big running';
+    const badge = document.getElementById('ttft-' + side);
+    badge.textContent = '';
+    badge.classList.remove('visible');
+  });
+
+  // Fire both simultaneously
+  const tStart = performance.now();
+  let doneCount = 0;
+  const onDone = (side, ttft, total) => {
+    results[side] = { ttft, total };
+    if (++doneCount === 2) {
+      btn.disabled = false;
+      showVerdict();
+    }
+  };
+
+  streamSide('a', prompt, tStart, onDone);
+  streamSide('b', prompt, tStart, onDone);
+}
+
+async function streamSide(side, prompt, tStart, onDone) {
+  const elapsedEl = document.getElementById('elapsed-' + side);
+  const ttftEl = document.getElementById('ttft-' + side);
+  const bodyEl = document.getElementById('body-' + side);
+  const footerEl = document.getElementById('footer-' + side);
+
+  let firstToken = false;
+  let ttft = null;
+
+  // Live timer — update every frame
+  const timer = setInterval(() => {
+    elapsedEl.textContent = Math.round(performance.now() - tStart);
+  }, 16);
+
+  // Blinking cursor
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+  bodyEl.appendChild(cursor);
+
+  try {
+    const resp = await fetch('/stream/' + side, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+
+        if (!firstToken) {
+          firstToken = true;
+          ttft = Math.round(performance.now() - tStart);
+          ttftEl.textContent = 'TTFT ' + ttft + ' ms';
+          ttftEl.classList.add('visible');
+        }
+
+        bodyEl.insertBefore(document.createTextNode(data), cursor);
+        bodyEl.scrollTop = bodyEl.scrollHeight;
+      }
+    }
+  } catch (err) {
+    bodyEl.insertBefore(document.createTextNode('\n[Error: ' + err.message + ']'), cursor);
+  }
+
+  // Done
+  clearInterval(timer);
+  const total = Math.round(performance.now() - tStart);
+  elapsedEl.textContent = total;
+  elapsedEl.className = 'timer-big done';
+  cursor.remove();
+  footerEl.textContent = 'Total: ' + total + ' ms' + (ttft != null ? '  |  First token: ' + ttft + ' ms' : '');
+  onDone(side, ttft, total);
+}
+
+function showVerdict() {
+  const a = results.a;
+  const b = results.b;
+  if (!a || !b || a.ttft == null || b.ttft == null) return;
+
+  const verdictEl = document.getElementById('verdict');
+  const textEl = document.getElementById('verdict-text');
+  const subEl = document.getElementById('verdict-sub');
+
+  const diff = a.ttft - b.ttft;
+  const labelA = configData.label_a || 'Provider A';
+  const labelB = configData.label_b || 'Provider B';
+
+  if (diff <= 0) {
+    textEl.innerHTML = '<span class="highlight">' + labelA + '</span> was <span class="highlight">' + Math.abs(diff) + ' ms faster</span> — with full privacy';
+    subEl.textContent = 'Encrypted, verifiable, and faster. TEE inference delivers.';
+  } else if (diff < 1000) {
+    textEl.innerHTML = '<span class="highlight">' + labelA + '</span> was only <span class="highlight">' + diff + ' ms slower</span> — with full privacy';
+    subEl.textContent = 'Your data stays encrypted. The speed cost? Barely noticeable.';
+  } else {
+    const secs = (diff / 1000).toFixed(1);
+    textEl.innerHTML = '<span class="highlight">' + labelA + '</span> was <span class="highlight">' + secs + 's slower</span> — but fully private';
+    subEl.textContent = 'Your prompts and responses never leave the Trusted Execution Environment.';
+  }
+
+  // Animate in
+  setTimeout(() => verdictEl.classList.add('visible'), 100);
+}
+</script>
+</body>
+</html>
