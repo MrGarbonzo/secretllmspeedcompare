@@ -1,7 +1,6 @@
 services:
   app:
-    build: .
-    image: llmspeedcompare:latest
+    image: ghcr.io/mrgarbonzo/secretllmspeedcompare:latest
     ports:
       - "8000:8000"
     env_file:
