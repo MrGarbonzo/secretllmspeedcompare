@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LLM Speed Compare — SecretAI vs Groq</title>
+<title>LLM Speed Compare — SecretAI vs Together AI</title>
 <style>
   :root {
     --color-bg: #FDF5EE;
@@ -122,6 +122,33 @@
     transition: border-color 0.15s, color 0.15s;
   }
   .chip:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+  /* ── Model Selector ── */
+  .model-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-size: 0.85rem;
+  }
+  .model-selector label {
+    color: var(--color-muted);
+    font-weight: 600;
+  }
+  .model-selector select {
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--color-border);
+    background: #fff;
+    color: var(--color-text);
+    font-size: 0.85rem;
+    font-weight: 500;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .model-selector select:focus { border-color: var(--color-accent); }
 
   /* ── Panels ── */
   .panels {
@@ -334,6 +361,10 @@
     <span class="chip" onclick="useChip(this)">What are the benefits of zero-knowledge proofs?</span>
     <span class="chip" onclick="useChip(this)">Draft a professional email declining a meeting</span>
   </div>
+  <div class="model-selector">
+    <label for="model-select">SecretAI Model:</label>
+    <select id="model-select"></select>
+  </div>
 </div>
 
 <!-- Panels -->
@@ -395,14 +426,31 @@
 
 <script>
 let configData = {};
+const modelSelect = document.getElementById('model-select');
 
-// Load config on page load
-fetch('/config').then(r => r.json()).then(cfg => {
+// Load config + models on page load
+Promise.all([
+  fetch('/config').then(r => r.json()),
+  fetch('/models').then(r => r.json()),
+]).then(([cfg, modelsData]) => {
   configData = cfg;
   document.getElementById('label-a').textContent = cfg.label_a;
   document.getElementById('label-b').textContent = cfg.label_b;
-  document.getElementById('model-a').textContent = cfg.model_a;
   document.getElementById('model-b').textContent = cfg.model_b;
+
+  // Populate model dropdown
+  modelsData.models.forEach((m, i) => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    modelSelect.appendChild(opt);
+  });
+  // Show selected model in panel header
+  document.getElementById('model-a').textContent = modelSelect.value;
+});
+
+modelSelect.addEventListener('change', () => {
+  document.getElementById('model-a').textContent = modelSelect.value;
 });
 
 // Prompt chips
@@ -455,11 +503,12 @@ function run() {
     }
   };
 
-  streamSide('a', prompt, tStart, onDone);
-  streamSide('b', prompt, tStart, onDone);
+  const selectedModel = modelSelect.value;
+  streamSide('a', prompt, tStart, onDone, selectedModel);
+  streamSide('b', prompt, tStart, onDone, null);
 }
 
-async function streamSide(side, prompt, tStart, onDone) {
+async function streamSide(side, prompt, tStart, onDone, model) {
   const elapsedEl = document.getElementById('elapsed-' + side);
   const ttftEl = document.getElementById('ttft-' + side);
   const bodyEl = document.getElementById('body-' + side);
@@ -482,7 +531,7 @@ async function streamSide(side, prompt, tStart, onDone) {
     const resp = await fetch('/stream/' + side, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify(model ? { prompt, model } : { prompt }),
     });
 
     const reader = resp.body.getReader();
